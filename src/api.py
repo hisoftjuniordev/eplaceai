@@ -589,17 +589,28 @@ async def run_demo_agent(message: str, history: list[dict], queue: asyncio.Queue
 
     try:
         # ── Detect name lookup ────────────────────────────────────────────────
+        # Skip common Slovenian question/verb words so we don't confuse them with names
+        _DEMO_NON_NAMES = {
+            "prikaži", "pokaži", "seznam", "kakšna", "kakšen", "kakšno",
+            "koliko", "kdaj", "kdo", "kje", "kaj", "kateri", "katera",
+            "bruto", "neto", "plača", "plače", "obračun", "povzetek",
+            "dopust", "bolni", "odsot", "prisot", "preveri", "ugotovi",
+            "konflik", "neskladj", "stanje", "zaposleni", "zaposlen",
+        }
         name_hint: str | None = None
         for word in message.split():
-            if len(word) >= 3 and word[0].isupper() and word.isalpha():
-                name_hint = word
+            clean = word.rstrip("?.!,;:")
+            if (len(clean) >= 3 and clean[0].isupper() and clean.isalpha()
+                    and clean.lower() not in _DEMO_NON_NAMES):
+                name_hint = clean
                 break
 
         # ── Route by keyword ─────────────────────────────────────────────────
         is_payroll = any(kw in msg for kw in ["plač", "placa", "bruto", "neto", "obračun", "payroll", "dohodnin", "prispevk"])
         is_leave   = any(kw in msg for kw in ["dopust", "bolni", "odsot", "leave", "malica"])
         is_attend  = any(kw in msg for kw in ["prisotnost", "ure", "nadure", "evidenc", "attendance"])
-        is_conflict= any(kw in msg for kw in ["konflikt", "prekrivanje", "neskladj", "conflict"])
+        is_conflict= (any(kw in msg for kw in ["konflikt", "prekrivanje", "neskladj", "conflict"])
+                      or ("potni" in msg and "dopust" in msg))
         is_travel  = any(kw in msg for kw in ["potni", "potovanje", "travel", "dieta", "km"])
         is_empl    = any(kw in msg for kw in ["zaposleni", "zaposlen", "employees", "seznam", "kdo", "oddelek", "department"])
 
