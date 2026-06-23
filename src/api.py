@@ -797,15 +797,21 @@ async def chat(request: ChatRequest) -> StreamingResponse:
     agent_fn = run_agent
 
     async def generate():
-        # Kick off agent in background task
         task = asyncio.create_task(agent_fn(request.message, request.history, queue))
+        total_wait = 0
         try:
             while True:
                 try:
-                    event = await asyncio.wait_for(queue.get(), timeout=90.0)
+                    event = await asyncio.wait_for(queue.get(), timeout=20.0)
+                    total_wait = 0
                 except asyncio.TimeoutError:
-                    yield f"data: {json.dumps({'type': 'error', 'text': 'Timeout'})}\n\n"
-                    break
+                    total_wait += 20
+                    if total_wait >= 300:
+                        yield f"data: {json.dumps({'type': 'error', 'text': 'Timeout'})}\n\n"
+                        break
+                    # SSE comment — keeps Railway/proxy connection alive without sending data
+                    yield ": keepalive\n\n"
+                    continue
                 if event is None:
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     break
