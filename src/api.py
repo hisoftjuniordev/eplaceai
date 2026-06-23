@@ -32,11 +32,20 @@ from src.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    database._pool = await asyncpg.create_pool(
-        dsn=settings.database_url,
-        min_size=settings.db_min_pool,
-        max_size=settings.db_max_pool,
-    )
+    for attempt in range(1, 7):
+        try:
+            database._pool = await asyncpg.create_pool(
+                dsn=settings.database_url,
+                min_size=settings.db_min_pool,
+                max_size=settings.db_max_pool,
+            )
+            break
+        except Exception as exc:
+            if attempt == 6:
+                raise RuntimeError(f"DB unreachable after 6 attempts: {exc}") from exc
+            wait = 2 ** attempt
+            print(f"DB connect attempt {attempt} failed ({exc}), retrying in {wait}s…")
+            await asyncio.sleep(wait)
     yield
     if database._pool:
         await database._pool.close()
