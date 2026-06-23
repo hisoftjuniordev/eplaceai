@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -e .
 COPY src/ ./src/
 COPY static/ ./static/
 COPY schema/ ./schema/
+COPY seed.py .
 
 # Env vars are injected by the platform (Railway/Render) — no .env copy
 ENV PYTHONUNBUFFERED=1
