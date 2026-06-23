@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import asyncio
 import asyncpg
+import os
 from decimal import Decimal
 from pathlib import Path
 
-DB_URL = "postgresql://postgres:password@localhost:5432/si_payroll"
+DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:password@localhost:5432/si_payroll")
 
 # All EMŠOs are checksum-verified
 EMPLOYEES = [
