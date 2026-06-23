@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SI Payroll AI</title>
+<style>
+  :root {
+    --bg:       #0b1120;
+    --surface:  #131e30;
+    --border:   #1e3050;
+    --accent:   #3b82f6;
+    --accent2:  #06b6d4;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --user-bg:  #1d4ed8;
+    --ai-bg:    #1a2740;
+    --term-bg:  #060d18;
+    --green:    #22c55e;
+    --yellow:   #fbbf24;
+    --cyan:     #67e8f9;
+    --red:      #f87171;
+    --purple:   #a78bfa;
+    --radius:   10px;
+    --font:     'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --mono:     'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .logo { font-size: 1.4rem; font-weight: 700; color: var(--text); }
+  .logo span { color: var(--accent2); }
+  .badge {
+    background: rgba(34,197,94,0.15);
+    color: var(--green);
+    border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 20px;
+    font-size: .72rem;
+    font-weight: 600;
+    padding: 2px 10px;
+    letter-spacing: .05em;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .stats {
+    margin-left: auto;
+    display: flex; gap: 20px;
+  }
+  .stat { display: flex; flex-direction: column; align-items: center; }
+  .stat-val { font-size: 1.1rem; font-weight: 700; color: var(--accent2); }
+  .stat-lbl { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+  /* ── Main layout ─────────────────────────────────────────────── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 0;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── Chat panel ──────────────────────────────────────────────── */
+  .chat-panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    min-height: 0;
+  }
+
+  .chat-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-behavior: smooth;
+  }
+  .chat-history::-webkit-scrollbar { width: 4px; }
+  .chat-history::-webkit-scrollbar-track { background: transparent; }
+  .chat-history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .msg { display: flex; gap: 10px; max-width: 92%; }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg.ai   { align-self: flex-start; }
+
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem; flex-shrink: 0; font-weight: 700;
+    margin-top: 2px;
+  }
+  .avatar.user-av { background: var(--user-bg); color: #fff; }
+  .avatar.ai-av   { background: linear-gradient(135deg, #1e40af, #0891b2); color: #fff; font-size: .75rem; }
+
+  .bubble {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    line-height: 1.55;
+    font-size: .92rem;
+  }
+  .msg.user .bubble {
+    background: var(--user-bg);
+    color: #fff;
+    border-bottom-right-radius: 2px;
+  }
+  .msg.ai .bubble {
+    background: var(--ai-bg);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 2px;
+  }
+  .bubble p { margin: 0 0 6px; }
+  .bubble p:last-child { margin: 0; }
+  .bubble strong { color: var(--accent2); }
+  .bubble code {
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: .85em;
+  }
+
+  .typing-dot {
+    display: inline-flex; align-items: center; gap: 3px; padding: 8px 0;
+  }
+  .typing-dot span {
+    width: 6px; height: 6px; background: var(--muted); border-radius: 50%;
+    animation: bounce .8s infinite;
+  }
+  .typing-dot span:nth-child(2) { animation-delay: .15s; }
+  .typing-dot span:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+
+  /* Quick prompts */
+  .quick-wrap {
+    padding: 8px 24px 0;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .quick {
+    background: rgba(59,130,246,.1);
+    border: 1px solid rgba(59,130,246,.3);
+    color: var(--accent);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: .78rem;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .quick:hover { background: rgba(59,130,246,.25); border-color: var(--accent); }
+
+  /* Input area */
+  .input-row {
+    padding: 16px 24px;
+    display: flex; gap: 10px; align-items: center;
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+  }
+  #msg-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font);
+    font-size: .92rem;
+    outline: none;
+    transition: border-color .15s;
+    resize: none;
+    min-height: 42px;
+    max-height: 120px;
+  }
+  #msg-input:focus { border-color: var(--accent); }
+  #msg-input::placeholder { color: var(--muted); }
+  #send-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+    flex-shrink: 0;
+  }
+  #send-btn:hover:not(:disabled) { background: #2563eb; }
+  #send-btn:active:not(:disabled) { transform: scale(.97); }
+  #send-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Terminal panel ───────────────────────────────────────────── */
+  .term-panel {
+    background: var(--term-bg);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .term-header {
+    padding: 10px 16px;
+    background: rgba(255,255,255,.03);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  .term-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .term-dot.r { background: #ff5f57; }
+  .term-dot.y { background: #febc2e; }
+  .term-dot.g { background: #28c840; }
+  .term-title {
+    font-family: var(--mono);
+    font-size: .75rem;
+    color: var(--muted);
+    margin-left: 6px;
+  }
+  #clear-btn {
+    margin-left: auto;
+    background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    font-size: .72rem; font-family: var(--mono);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  #clear-btn:hover { color: var(--text); background: rgba(255,255,255,.05); }
+
+  #term-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: .78rem;
+    line-height: 1.6;
+    scroll-behavior: smooth;
+  }
+  #term-log::-webkit-scrollbar { width: 4px; }
+  #term-log::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); }
+
+  .log-line { margin-bottom: 2px; display: flex; gap: 8px; }
+  .log-ts { color: #334155; flex-shrink: 0; user-select: none; }
+  .log-msg { word-break: break-word; flex: 1; }
+
+  .log-thinking { color: #475569; font-style: italic; }
+  .log-tool     { color: var(--yellow); }
+  .log-sql      { color: var(--cyan); }
+  .log-result   { color: var(--green); }
+  .log-response { color: #94a3b8; }
+  .log-error    { color: var(--red); }
+  .log-partial  { color: #64748b; }
+  .log-info     { color: #475569; }
+
+  .log-sql-block {
+    background: rgba(103,232,249,.05);
+    border-left: 2px solid rgba(103,232,249,.3);
+    padding: 4px 8px;
+    margin: 2px 0;
+    border-radius: 0 4px 4px 0;
+    white-space: pre-wrap;
+    color: var(--cyan);
+    font-size: .75rem;
+  }
+
+  /* ── How it works ────────────────────────────────────────────── */
+  .how-panel {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 14px 24px;
+    flex-shrink: 0;
+    grid-column: 1 / -1;
+  }
+  .how-title {
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: 10px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    user-select: none;
+  }
+  .how-title::after { content: attr(data-arrow); transition: transform .2s; }
+  .how-steps {
+    display: flex; gap: 0; align-items: center;
+    overflow-x: auto; padding-bottom: 4px;
+  }
+  .how-steps::-webkit-scrollbar { height: 3px; }
+  .how-steps::-webkit-scrollbar-thumb { background: var(--border); }
+  .step {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    min-width: 120px; text-align: center;
+  }
+  .step-icon {
+    width: 40px; height: 40px;
+    background: rgba(59,130,246,.15);
+    border: 1px solid rgba(59,130,246,.3);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+  }
+  .step-label { font-size: .72rem; color: var(--text); font-weight: 600; }
+  .step-desc  { font-size: .65rem; color: var(--muted); line-height: 1.3; padding: 0 4px; }
+  .step-arrow {
+    color: var(--muted); font-size: 1.2rem; flex-shrink: 0;
+    padding: 0 4px; margin-bottom: 20px;
+  }
+
+  /* scrollbar global */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">🇸🇮 SI Payroll <span>AI</span></div>
+  <div class="badge">LIVE</div>
+  <div class="stats">
+    <div class="stat"><span class="stat-val" id="s-emp">–</span><span class="stat-lbl">Zaposleni</span></div>
+    <div class="stat"><span class="stat-val" id="s-pay">–</span><span class="stat-lbl">Obračuni</span></div>
+    <div class="stat"><span class="stat-val" id="s-leave">–</span><span class="stat-lbl">Čakajoče</span></div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main>
+
+  <!-- CHAT -->
+  <div class="chat-panel">
+    <div class="chat-history" id="chat-history">
+      <div class="msg ai">
+        <div class="avatar ai-av">AI</div>
+        <div class="bubble">
+          <p>Zdravo! 👋 Sem vaš AI asistent za <strong>SI Payroll</strong>.</p>
+          <p>Vprašajte me karkoli o zaposlenih, plačah, dopustih ali prisotnosti — odgovarjam v naravnem jeziku in prikazujem dejanske SQL poizvedbe v terminalu desno.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-wrap">
+      <span class="quick" onclick="sendQuick('Prikaži vse zaposlene v IT oddelku')">👥 IT oddelek</span>
+      <span class="quick" onclick="sendQuick('Koliko dopusta ima Ana Kovač?')">🏖️ Dopust Ane</span>
+      <span class="quick" onclick="sendQuick('Pokaži povzetek plač za april 2026')">💰 Plače april</span>
+      <span class="quick" onclick="sendQuick('Kdo ima potni nalog in dopust na isti dan?')">⚠️ Neskladja</span>
+      <span class="quick" onclick="sendQuick('Kakšna je bruto plača Janeza Novaka za april 2026?')">📊 Plača Janeza</span>
+      <span class="quick" onclick="sendQuick('Prikaži odprte bolniške odsotnosti')">🤒 Bolniške</span>
+    </div>
+
+    <div class="input-row">
+      <textarea id="msg-input" placeholder="Vprašajte o zaposlenih, plačah, dopustih…" rows="1"></textarea>
+      <button id="send-btn" onclick="sendMessage()">Pošlji →</button>
+    </div>
+  </div>
+
+  <!-- TERMINAL -->
+  <div class="term-panel">
+    <div class="term-header">
+      <div class="term-dot r"></div>
+      <div class="term-dot y"></div>
+      <div class="term-dot g"></div>
+      <span class="term-title">si-payroll — agent terminal</span>
+      <button id="clear-btn" onclick="clearLog()">clear</button>
+    </div>
+    <div id="term-log">
+      <div class="log-line">
+        <span class="log-ts">–</span>
+        <span class="log-msg log-info">SI Payroll AI terminal. Pripravljeno.</span>
+      </div>
+      <div class="log-line">
+        <span class="log-ts">–</span>
+        <span class="log-msg log-info">Model: claude-sonnet-4-6 · DB: PostgreSQL 16</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- HOW IT WORKS -->
+<div class="how-panel">
+  <div class="how-title" id="how-title" data-arrow="▸" onclick="toggleHow()">Kako deluje aplikacija</div>
+  <div class="how-steps" id="how-steps" style="display:none">
+    <div class="step">
+      <div class="step-icon">💬</div>
+      <div class="step-label">Naravni jezik</div>
+      <div class="step-desc">Uporabnik vnese vprašanje v slovenščini</div>
+    </div>
+    <div class="step-arrow">→</div>
+    <div class="step">
+      <div class="step-icon">⚡</div>
+      <div class="step-label">FastAPI</div>
+      <div class="step-desc">Python backend sprejme zahtevo, odpre SSE tok</div>
+    </div>
+    <div class="step-arrow">→</div>
+    <div class="step">
+      <div class="step-icon">🤖</div>
+      <div class="step-label">Claude AI</div>
+      <div class="step-desc">LLM razume namen in izbere pravo orodje (tool calling)</div>
+    </div>
+    <div class="step-arrow">→</div>
+    <div class="step">
+      <div class="step-icon">🔧</div>
+      <div class="step-label">MCP Orodja</div>
+      <div class="step-desc">Backend izvede ustrezno SQL poizvedbo v bazo</div>
+    </div>
+    <div class="step-arrow">→</div>
+    <div class="step">
+      <div class="step-icon">🗄️</div>
+      <div class="step-label">PostgreSQL</div>
+      <div class="step-desc">Baza vrne strukturirane podatke (asyncpg)</div>
+    </div>
+    <div class="step-arrow">→</div>
+    <div class="step">
+      <div class="step-icon">✍️</div>
+      <div class="step-label">Odgovor</div>
+      <div class="step-desc">Claude preoblikuje podatke v naraven odgovor</div>
+    </div>
+    <div class="step-arrow">→</div>
+    <div class="step">
+      <div class="step-icon">📺</div>
+      <div class="step-label">Terminal</div>
+      <div class="step-desc">Vse akcije so vidne v živo v terminalu desno</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const history = [];
+let busy = false;
+
+// ── Stats ──────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const r = await fetch('/api/stats');
+    const d = await r.json();
+    document.getElementById('s-emp').textContent   = d.employees   ?? '–';
+    document.getElementById('s-pay').textContent   = d.payroll_runs ?? '–';
+    document.getElementById('s-leave').textContent = d.pending_leaves ?? '–';
+  } catch {}
+}
+loadStats();
+setInterval(loadStats, 30000);
+
+// ── Terminal ──────────────────────────────────────────────────
+const termLog = document.getElementById('term-log');
+
+function ts() {
+  return new Date().toLocaleTimeString('sl-SI', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+
+function logLine(cls, html) {
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-ts">${ts()}</span><span class="log-msg ${cls}">${html}</span>`;
+  termLog.appendChild(line);
+  termLog.scrollTop = termLog.scrollHeight;
+}
+
+function logSql(query, params) {
+  const clean = query.replace(/\s+/g, ' ').trim();
+  const paramStr = params && params.length ? ` <span style="color:#475569">-- [${params.slice(0,3).map(p => JSON.stringify(String(p).slice(0,40))).join(', ')}]</span>` : '';
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-ts">${ts()}</span><span class="log-msg log-sql">🔍 SQL:</span>`;
+  termLog.appendChild(line);
+  const block = document.createElement('div');
+  block.className = 'log-sql-block';
+  block.innerHTML = escHtml(clean) + paramStr;
+  termLog.appendChild(block);
+  termLog.scrollTop = termLog.scrollHeight;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function clearLog() {
+  termLog.innerHTML = '<div class="log-line"><span class="log-ts">–</span><span class="log-msg log-info">Terminal cleared.</span></div>';
+}
+
+// ── Chat ──────────────────────────────────────────────────────
+const chatEl = document.getElementById('chat-history');
+const inputEl = document.getElementById('msg-input');
+const sendBtn = document.getElementById('send-btn');
+
+function addMsg(role, html) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const av = role === 'user'
+    ? `<div class="avatar user-av">U</div>`
+    : `<div class="avatar ai-av">AI</div>`;
+  div.innerHTML = `${av}<div class="bubble">${html}</div>`;
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return div;
+}
+
+function typingIndicator() {
+  return addMsg('ai', '<div class="typing-dot"><span></span><span></span><span></span></div>');
+}
+
+function formatAiText(text) {
+  // Convert markdown-ish text to HTML
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+    .replace(/^/, '<p>').replace(/$/, '</p>');
+}
+
+async function sendMessage() {
+  const text = inputEl.value.trim();
+  if (!text || busy) return;
+  doSend(text);
+}
+
+function sendQuick(text) {
+  if (busy) return;
+  inputEl.value = text;
+  doSend(text);
+}
+
+async function doSend(text) {
+  busy = true;
+  sendBtn.disabled = true;
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+
+  addMsg('user', escHtml(text));
+  history.push({role: 'user', content: text});
+
+  logLine('log-info', `▶ Novo sporočilo: <em>"${escHtml(text.slice(0,60))}${text.length>60?'…':''}"</em>`);
+
+  const typing = typingIndicator();
+  let aiText = '';
+  let currentBubble = null;
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({message: text, history: history.slice(0,-1)}),
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const dec    = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream: true});
+
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) !== -1) {
+        const chunk = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        if (!chunk.startsWith('data: ')) continue;
+        const raw = chunk.slice(6).trim();
+        if (!raw || raw === '[DONE]') continue;
+
+        let ev;
+        try { ev = JSON.parse(raw); } catch { continue; }
+
+        handleEvent(ev);
+      }
+    }
+  } catch(err) {
+    logLine('log-error', `❌ Napaka: ${escHtml(err.message)}`);
+    if (typing.parentNode) typing.remove();
+    addMsg('ai', `<p style="color:var(--red)">Prišlo je do napake: ${escHtml(err.message)}</p>`);
+  } finally {
+    busy = false;
+    sendBtn.disabled = false;
+  }
+
+  function handleEvent(ev) {
+    switch (ev.type) {
+      case 'thinking':
+        logLine('log-thinking', `💭 ${escHtml(ev.text)}`);
+        break;
+
+      case 'tool_call':
+        const argStr = JSON.stringify(ev.args, null, 0);
+        logLine('log-tool',
+          `📞 <strong>${escHtml(ev.tool)}</strong>` +
+          `<span style="color:#64748b"> (${escHtml(argStr.slice(0,80))}${argStr.length>80?'…':''})</span>`);
+        break;
+
+      case 'sql':
+        logSql(ev.query, ev.params);
+        break;
+
+      case 'sql_result':
+        logLine('log-result', `← <strong>${ev.rows}</strong> ${ev.rows===1?'vrstica':'vrstic'} vrnjenih`);
+        break;
+
+      case 'tool_success':
+        logLine('log-result', `✅ ${escHtml(ev.tool)}: <span style="color:#4b5563">${escHtml(ev.preview)}</span>`);
+        break;
+
+      case 'tool_error':
+        logLine('log-error', `❌ ${escHtml(ev.tool)}: ${escHtml(ev.error)}`);
+        break;
+
+      case 'partial_text':
+        logLine('log-partial', `… ${escHtml(ev.text.slice(0,80))}`);
+        break;
+
+      case 'response':
+        if (typing.parentNode) typing.remove();
+        const html = formatAiText(ev.text);
+        addMsg('ai', html);
+        history.push({role: 'assistant', content: ev.text});
+        logLine('log-response', `💬 Odgovor generiran (${ev.text.length} znakov)`);
+        break;
+
+      case 'done':
+        logLine('log-info', '─────────────────────────────────');
+        break;
+
+      case 'error':
+        logLine('log-error', `❌ ${escHtml(ev.text)}`);
+        if (typing.parentNode) typing.remove();
+        addMsg('ai', `<p style="color:var(--red)">${escHtml(ev.text)}</p>`);
+        break;
+    }
+  }
+}
+
+// ── Auto-resize textarea ─────────────────────────────────────
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+});
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// ── How it works toggle ──────────────────────────────────────
+function toggleHow() {
+  const steps = document.getElementById('how-steps');
+  const title = document.getElementById('how-title');
+  const visible = steps.style.display !== 'none';
+  steps.style.display = visible ? 'none' : 'flex';
+  title.dataset.arrow = visible ? '▸' : '▾';
+}
+</script>
+</body>
+</html>
