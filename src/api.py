@@ -51,6 +51,19 @@ async def lifespan(app: FastAPI):
             wait = 2 ** attempt
             print(f"DB connect attempt {attempt} failed ({exc}), retrying in {wait}s…")
             await asyncio.sleep(wait)
+
+    # Apply schema if tables don't exist yet (first deploy on a fresh DB)
+    tables_exist = await database._pool.fetchval(
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'employees')"
+    )
+    if not tables_exist:
+        print("Fresh DB detected — applying schema…")
+        schema_sql = (Path(__file__).parent.parent / "schema" / "init.sql").read_text()
+        await database._pool.execute(schema_sql)
+        print("Schema applied. Run 'python seed.py' to populate with test data.")
+    else:
+        print("Schema already present.")
+
     yield
     if database._pool:
         await database._pool.close()
