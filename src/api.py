@@ -32,13 +32,18 @@ from src.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Log masked URL so Railway logs show which host is being targeted
+    db_url = settings.database_url
+    masked = db_url.split("@")[-1] if "@" in db_url else db_url
+    print(f"Connecting to DB: …@{masked}")
     for attempt in range(1, 7):
         try:
             database._pool = await asyncpg.create_pool(
-                dsn=settings.database_url,
+                dsn=db_url,
                 min_size=settings.db_min_pool,
                 max_size=settings.db_max_pool,
             )
+            print("DB connection pool established.")
             break
         except Exception as exc:
             if attempt == 6:
